@@ -49,7 +49,6 @@ from libs.version import __version__
 from libs.hashableQListWidgetItem import HashableQListWidgetItem
 import config
 from libs.video_processing import VideoCapture
-from libs.simple_thread import SimpleThread
 
 
 __appname__ = 'labelVid'
@@ -366,6 +365,12 @@ class MainWindow(QMainWindow, WindowMixin):
         help = action(getStr('tutorial'), self.showTutorialDialog, None, 'help', getStr('tutorialDetail'))
         showInfo = action(getStr('info'), self.showInfoDialog, None, 'help', getStr('info'))
 
+        # FIXME Удалить
+        jumpForward = action(getStr('jumpForward'), lambda : print('hello'),
+                        'Ctrl+D', 'jump forward', getStr('jumpForward'), enabled=True)
+        jumpBackward = action(getStr('jumpBackward'), partial(self.addZoom, 10),
+                        'Ctrl+A', 'jump-backward', getStr('jumpBackward'), enabled=True)
+
         zoom = QWidgetAction(self)
         zoom.setDefaultWidget(self.zoomWidget)
         self.zoomWidget.setWhatsThis(
@@ -433,6 +438,7 @@ class MainWindow(QMainWindow, WindowMixin):
                               createMode=createMode, editMode=editMode, advancedMode=advancedMode,
                               shapeLineColor=shapeLineColor, shapeFillColor=shapeFillColor,
                               zoom=zoom, zoomIn=zoomIn, zoomOut=zoomOut, zoomOrg=zoomOrg,
+                              jumpForward=jumpForward, jumpBackward=jumpBackward,
                               fitWindow=fitWindow, fitWidth=fitWidth,
                               zoomActions=zoomActions,
                               fileMenuActions=(
@@ -471,6 +477,12 @@ class MainWindow(QMainWindow, WindowMixin):
         self.displayLabelOption.setCheckable(True)
         self.displayLabelOption.setChecked(settings.get(SETTING_PAINT_LABEL, False))
         self.displayLabelOption.triggered.connect(self.togglePaintLabelsOption)
+
+        # Add option to jump forward and backward
+        self.shortcut = QShortcut(QKeySequence("Ctrl+D"), self)
+        self.shortcut.activated.connect(self.jumpForward)
+        self.shortcut = QShortcut(QKeySequence("Ctrl+A"), self)
+        self.shortcut.activated.connect(self.jumpBackward)
 
         addActions(self.menus.file,
                    (openVideo, opendir, changeSavedir, openAnnotation, self.menus.recentFiles, save, save_format, saveAnnoAs, close, resetAll, quit))
@@ -1559,6 +1571,54 @@ class MainWindow(QMainWindow, WindowMixin):
 
         if currIndex:
             self.loadFrame(currIndex)
+
+    def jumpForward(self):
+        n = config.NUM_SKIP_FRAMES
+        if self.autoSaving.isChecked():
+            if self.defaultSaveDir is not None:
+                if self.dirty is True or self.propagateLabelsFlag is True:
+                    self.saveFile()
+            else:
+                self.changeSavedirDialog()
+                return
+
+        if not self.mayContinue():
+            return
+
+        if len(self.mImgList) <= 0:
+            return
+
+        currIndex = self.video_cap.get_position()
+        if currIndex + n < len(self.mImgList):
+            currIndex = currIndex + n
+        else:
+            currIndex = len(self.mImgList) - 1
+        self.fileListWidget.scrollToItem(self.fileListWidget.item(currIndex), hint=QAbstractItemView.EnsureVisible)
+
+        if currIndex:
+            self.loadFrame(currIndex)
+
+    def jumpBackward(self):
+        n = config.NUM_SKIP_FRAMES
+        if self.autoSaving.isChecked():
+            if self.defaultSaveDir is not None:
+                if self.dirty is True or self.propagateLabelsFlag is True:
+                    self.saveFile()
+            else:
+                self.changeSavedirDialog()
+                return
+
+        if not self.mayContinue():
+            return
+
+        if len(self.mImgList) <= 0:
+            return
+
+        currIndex = self.video_cap.get_position()
+        if currIndex - n < len(self.mImgList):
+            currIndex = currIndex - n if currIndex - n >= 0 else 0
+            self.fileListWidget.scrollToItem(self.fileListWidget.item(currIndex), hint=QAbstractItemView.EnsureVisible)
+        self.loadFrame(currIndex)
 
     def openFile(self, _value=False):
         if not self.mayContinue():
