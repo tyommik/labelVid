@@ -359,17 +359,11 @@ class MainWindow(QMainWindow, WindowMixin):
                          'Ctrl+H', 'hide', getStr('hideAllBoxDetail'),
                          enabled=False)
         showAll = action('&Show\nRectBox', partial(self.togglePolygons, True),
-                         'Ctrl+A', 'hide', getStr('showAllBoxDetail'),
+                         'Ctrl+Shift+A', 'hide', getStr('showAllBoxDetail'),
                          enabled=False)
 
         help = action(getStr('tutorial'), self.showTutorialDialog, None, 'help', getStr('tutorialDetail'))
         showInfo = action(getStr('info'), self.showInfoDialog, None, 'help', getStr('info'))
-
-        # FIXME Удалить
-        jumpForward = action(getStr('jumpForward'), lambda : print('hello'),
-                        'Ctrl+D', 'jump forward', getStr('jumpForward'), enabled=True)
-        jumpBackward = action(getStr('jumpBackward'), partial(self.addZoom, 10),
-                        'Ctrl+A', 'jump-backward', getStr('jumpBackward'), enabled=True)
 
         zoom = QWidgetAction(self)
         zoom.setDefaultWidget(self.zoomWidget)
@@ -438,7 +432,6 @@ class MainWindow(QMainWindow, WindowMixin):
                               createMode=createMode, editMode=editMode, advancedMode=advancedMode,
                               shapeLineColor=shapeLineColor, shapeFillColor=shapeFillColor,
                               zoom=zoom, zoomIn=zoomIn, zoomOut=zoomOut, zoomOrg=zoomOrg,
-                              jumpForward=jumpForward, jumpBackward=jumpBackward,
                               fitWindow=fitWindow, fitWidth=fitWidth,
                               zoomActions=zoomActions,
                               fileMenuActions=(
@@ -1020,6 +1013,8 @@ class MainWindow(QMainWindow, WindowMixin):
         #     return False
         if self.shapes is None:
             self.shapes = YoloCacheReader(classListPath=config.PREDEF_YOLO_CLASSES)
+        if self.propagateLabelsFlag:
+            return True
         annotationFilePath = ustr(annotationFilePath)
         shapes = [self.format_shape(shape) for shape in self.canvas.shapes]
         currIndex = self.video_cap.get_position()
@@ -1547,10 +1542,10 @@ class MainWindow(QMainWindow, WindowMixin):
             return
 
         currIndex = self.video_cap.get_position()
-        if currIndex - 1 < len(self.mImgList):
+        if 0 <= currIndex - 1 < len(self.mImgList):
             currIndex = currIndex - 1
             self.fileListWidget.scrollToItem(self.fileListWidget.item(currIndex), hint=QAbstractItemView.EnsureVisible)
-        self.loadFrame(currIndex)
+            self.loadFrame(currIndex)
 
     def openNextImg(self, _value=False):
         # Proceding prev image without dialog if having any label
