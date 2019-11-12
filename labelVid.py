@@ -1239,10 +1239,8 @@ class MainWindow(QMainWindow, WindowMixin):
             # if self.usingPascalVocFormat is True:
 
             self.setWindowTitle(__appname__ + ' ')
-            #FIXME проверить разные варианты смены кадров
             self.positionSlider.setSliderPosition(position)
             self.sliderPositionChanged()
-
 
             # Default : select last item if there is at least one item
             if self.labelList.count():
@@ -1255,6 +1253,12 @@ class MainWindow(QMainWindow, WindowMixin):
 
     def loadFile(self, filePath=None):
         """Load the specified file, or the last opened file if None."""
+
+        if self.shapes is None:
+            self.shapes = YoloCacheReader(classListPath=config.PREDEF_YOLO_CLASSES)
+        else:
+            if not self.discardChangesDialog():
+                return False
         self.shapes = None
         self.resetState()
         self.canvas.setEnabled(False)
