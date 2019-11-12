@@ -7,6 +7,7 @@ imageio-ffmpeg==0.3.0
 lxml==4.2.4
 moviepy==1.0.1
 numpy==1.17.3
+opencv-python==4.1.1.26
 Pillow==6.2.1
 proglog==0.1.9
 PyQt5==5.13.1
