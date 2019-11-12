@@ -485,7 +485,7 @@ class MainWindow(QMainWindow, WindowMixin):
         self.shortcut.activated.connect(self.jumpBackward)
 
         addActions(self.menus.file,
-                   (openVideo, opendir, changeSavedir, openAnnotation, self.menus.recentFiles, save, save_format, saveAnnoAs, close, resetAll, quit))
+                   (openVideo, openAnnotation, saveAnnoAs, self.menus.recentFiles, save, close, resetAll, quit))
         addActions(self.menus.help, (help, showInfo))
         addActions(self.menus.view, (
             self.autoSaving,
@@ -506,7 +506,7 @@ class MainWindow(QMainWindow, WindowMixin):
 
         self.tools = self.toolbar('Tools')
         self.actions.beginner = (
-            openVideo, openAnnotation, saveAnnoAs, openNextImg, openPrevImg, verify, save, save_format, None, create, copy, paste, delete, None,
+            openVideo, openAnnotation, saveAnnoAs, openNextImg, openPrevImg, verify, save, None, create, copy, paste, delete, None,
             zoomIn, zoom, zoomOut, fitWindow, fitWidth)
 
         self.actions.advanced = (
