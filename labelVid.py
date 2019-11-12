@@ -176,6 +176,7 @@ class MainWindow(QMainWindow, WindowMixin):
 
         self.fileListWidget = QListWidget()
         self.fileListWidget.itemDoubleClicked.connect(self.fileitemDoubleClicked)
+        self.fileListWidget.installEventFilter(self)
         filelistLayout = QVBoxLayout()
         filelistLayout.setContentsMargins(0, 0, 0, 0)
         filelistLayout.addWidget(self.fileListWidget)
@@ -224,7 +225,6 @@ class MainWindow(QMainWindow, WindowMixin):
 
         controlLayout = QHBoxLayout()
         controlLayout.setContentsMargins(0, 0, 0, 0)
-        # controlLayout.addWidget(self.positionSlider)
         container = QWidget()
         container.setLayout(controlLayout)
 
@@ -635,6 +635,31 @@ class MainWindow(QMainWindow, WindowMixin):
         if event.key() == Qt.Key_Control:
             # Draw rectangle if Ctrl is pressed
             self.canvas.setDrawingShapeToSquare(True)
+
+    def eventFilter(self, source, event):
+        if (event.type() == QEvent.ContextMenu and source is self.fileListWidget):
+            # menu = QMenu()
+            # menu.addAction('Make anno using selected')
+            # if menu.exec_(event.globalPos()):
+            #     item = source.itemAt(event.pos())
+            #     self.loadFile(item.text())
+            #     copyLabels = self.canvas.shapes.copy()
+            #     items = self.fileListWidget.selectedItems()
+            #     for item in items:
+            #         self.loadFile(item.text())
+            #         self.canvas.loadShapes(copyLabels)
+            #         self.saveLabels(item.text().rsplit('.', maxsplit=1)[0] + '.txt')
+            #         if item != items[-1]:
+            #             self.closeFile()
+            #     print(item.text())
+            return True
+        if event.type() == QEvent.KeyPress and \
+                event.matches(QKeySequence.InsertParagraphSeparator):
+            item = self.fileListWidget.selectedItems()[0]
+            self.fileitemDoubleClicked(item)
+            self.fileListWidget.setFocus()
+        return super().eventFilter(source, event)
+
 
     ## Support Functions ##
     def set_format(self, save_format):
