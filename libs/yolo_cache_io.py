@@ -141,7 +141,7 @@ class YoloCacheReader:
                     if not line.startswith(('#')):
                         line = line.strip()
                         pos, x, y, w, h, obj_class, precision = line.split(' ')
-                        detection = Detection(int(pos), int(x), int(y), int(w), int(h), int(obj_class),
+                        detection = Detection(int(float(pos)), int(x), int(y), int(w), int(h), int(obj_class),
                                               float(precision))
                         yield detection
         for detection in read_file():
