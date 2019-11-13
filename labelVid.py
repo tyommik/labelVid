@@ -914,7 +914,10 @@ class MainWindow(QMainWindow, WindowMixin):
         else:
             shape = self.canvas.selectedShape
             if shape:
-                self.shapesToItems[shape].setSelected(True)
+                try:
+                    self.shapesToItems[shape].setSelected(True)
+                except KeyError as err:
+                    self.errorMessage({str(type(err)).__name__}, str(err))
             else:
                 self.labelList.clearSelection()
         self.actions.delete.setEnabled(selected)
