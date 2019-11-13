@@ -1464,8 +1464,7 @@ class MainWindow(QMainWindow, WindowMixin):
             self.statusBar().show()
             return
 
-        path = os.path.dirname(ustr(self.filePath))\
-            if self.filePath else '.'
+        path = os.path.dirname(ustr(self.filePath)) if self.filePath else '.'
         if self.usingPascalVocFormat:
             filters = "Open Annotation XML file (%s)" % ' '.join(['*.xml'])
             filename = ustr(QFileDialog.getOpenFileName(self,'%s - Choose a xml file' % __appname__, path, filters))
@@ -1624,10 +1623,10 @@ class MainWindow(QMainWindow, WindowMixin):
 
     def openFile(self, _value=False):
         if not self.mayContinue():
-            return
-        path = os.path.dirname(ustr(self.filePath)) if self.filePath else '.'
+            return None
+        path = os.path.dirname(str(self.filePath)) if self.filePath else '.'
         formats = ['*.%s' % fmt.data().decode("ascii").lower() for fmt in QImageReader.supportedImageFormats()]
-        formats.extend(['*.mp4', '*.avi'])
+        formats.extend(['*.mp4', '*.avi', '*.mkv', '*.ts'])
         filters = "Image & Label files (%s)" % ' '.join(formats + ['*%s' % LabelFile.suffix])
         filename = QFileDialog.getOpenFileName(self, '%s - Choose Image or Label file' % __appname__, path, filters)
         if filename:
