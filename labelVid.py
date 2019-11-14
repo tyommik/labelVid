@@ -39,6 +39,7 @@ from libs.labelDialog import LabelDialog
 from libs.colorDialog import ColorDialog
 from libs.labelFile import LabelFile, LabelFileError
 from libs.toolBar import ToolBar
+from libs.timeline import Timeline
 from libs.pascal_voc_io import PascalVocReader
 from libs.pascal_voc_io import XML_EXT
 from libs.yolo_io import YoloReader
@@ -219,8 +220,9 @@ class MainWindow(QMainWindow, WindowMixin):
         self.video_cap = None
 
         # Media control slider
-        self.positionSlider = QSlider(Qt.Horizontal)
-        self.positionSlider.setRange(0, 0)
+        self.positionSlider = Timeline(Qt.Horizontal, self)
+        self.positionSlider.sliderMoved.connect(self.loadFrame)
+        self.positionSlider.sliderMoved.connect(self.sliderPositionChanged)
 
         controlLayout = QHBoxLayout()
         controlLayout.setContentsMargins(0, 0, 0, 0)
@@ -272,8 +274,6 @@ class MainWindow(QMainWindow, WindowMixin):
         controlLayout.addWidget(self.lbl)
         controlLayout.addWidget(self.positionSlider)
         controlLayout.addWidget(self.elbl)
-        self.positionSlider.sliderMoved.connect(self.loadFrame)
-        self.positionSlider.sliderMoved.connect(self.sliderPositionChanged)
 
         centralContainer = QWidget()
         centralLayout = QVBoxLayout()
@@ -319,8 +319,11 @@ class MainWindow(QMainWindow, WindowMixin):
         save_format = action('&PascalVOC', self.change_format,
                       'Ctrl+', 'format_voc', getStr('changeSaveFormat'), enabled=True)
 
-        saveAnnoAs = action(getStr('saveAnnoAs'), self.saveAnnotation,
-                        'Ctrl+Shift+S', 'save-anno-as', getStr('saveAsDetail'), enabled=True)
+        saveAnno = action(getStr('saveAnno'), self.saveAnnotation,
+                        'Ctrl+Shift+S', 'save-anno', getStr('saveAsDetail'), enabled=True)
+
+        saveAnnoAs = action(getStr('saveAnnoAs'), self.saveAnnotationAs,
+                        '', 'save-anno-as', getStr('saveAsDetail'), enabled=True)
 
         close = action(getStr('closeCur'), self.closeFile, 'Ctrl+W', 'close', getStr('closeCurDetail'))
 
@@ -427,7 +430,7 @@ class MainWindow(QMainWindow, WindowMixin):
         self.drawSquaresOption.triggered.connect(self.toogleDrawSquare)
 
         # Store actions for further handling.
-        self.actions = struct(save=save, save_format=save_format, saveAs=saveAnnoAs, open=openVideo, close=close, resetAll = resetAll,
+        self.actions = struct(save=save, save_format=save_format, saveAnno=saveAnno, saveAnnoAs=saveAnnoAs, open=openVideo, close=close, resetAll = resetAll,
                               lineColor=color1, create=create, delete=delete, edit=edit, copy=copy,
                               createMode=createMode, editMode=editMode, advancedMode=advancedMode,
                               shapeLineColor=shapeLineColor, shapeFillColor=shapeFillColor,
@@ -435,7 +438,7 @@ class MainWindow(QMainWindow, WindowMixin):
                               fitWindow=fitWindow, fitWidth=fitWidth,
                               zoomActions=zoomActions,
                               fileMenuActions=(
-                                  openVideo, opendir, save, saveAnnoAs, close, resetAll, quit),
+                                  openVideo, opendir, save, saveAnno, saveAnnoAs, close, resetAll, quit),
                               beginner=(), advanced=(),
                               editMenu=(edit, copy, delete, paste, editor,
                                         None, color1, self.drawSquaresOption),
@@ -460,7 +463,7 @@ class MainWindow(QMainWindow, WindowMixin):
         self.autoSaving.setChecked(settings.get(SETTING_AUTO_SAVE, False))
         # Sync single class mode from PR#106
         self.singleClassMode = QAction(getStr('singleClsMode'), self)
-        self.singleClassMode.setShortcut("Ctrl+Shift+S")
+        # self.singleClassMode.setShortcut("Ctrl+Shift+S")
         self.singleClassMode.setCheckable(True)
         self.singleClassMode.setChecked(settings.get(SETTING_SINGLE_CLASS, False))
         self.lastLabel = None
@@ -478,7 +481,7 @@ class MainWindow(QMainWindow, WindowMixin):
         self.shortcut.activated.connect(self.jumpBackward)
 
         addActions(self.menus.file,
-                   (openVideo, openAnnotation, saveAnnoAs, self.menus.recentFiles, save, close, resetAll, quit))
+                   (openVideo, openAnnotation, saveAnno, saveAnnoAs, self.menus.recentFiles, save, close, resetAll, quit))
         addActions(self.menus.help, (help, showInfo))
         addActions(self.menus.view, (
             self.autoSaving,
@@ -499,11 +502,11 @@ class MainWindow(QMainWindow, WindowMixin):
 
         self.tools = self.toolbar('Tools')
         self.actions.beginner = (
-            openVideo, openAnnotation, saveAnnoAs, openNextImg, openPrevImg, verify, save, None, create, copy, paste, delete, None,
+            openVideo, openAnnotation, saveAnno, openNextImg, openPrevImg, verify, save, None, create, copy, paste, delete, None,
             zoomIn, zoom, zoomOut, fitWindow, fitWidth)
 
         self.actions.advanced = (
-            openVideo, openAnnotation, saveAnnoAs, openNextImg, openPrevImg, save, save_format, None, editor,
+            openVideo, openAnnotation, saveAnno, openNextImg, openPrevImg, save, save_format, None, editor,
             createMode, editMode, None,
             hideAll, showAll)
 
@@ -513,6 +516,7 @@ class MainWindow(QMainWindow, WindowMixin):
         # Application state.
         self.image = QImage()
         self.filePath = ustr(defaultFilename)
+        self.annoFilePath = None
         self.recentFiles = []
         self.maxRecent = 7
         self.lineColor = None
@@ -702,12 +706,13 @@ class MainWindow(QMainWindow, WindowMixin):
             self.dock.setFeatures(self.dock.features() ^ self.dockFeatures)
 
     def setStartPropagateFrame(self):
-        self.propagateLabelsFlag = True
-        self.propagateStartFrame = self.video_cap.get_position()
-        self.propagateLabels = self.canvas.shapes.copy()
-        self.annoStartButton.setText('Started propagate')
-        self.annoEndButton.setDisabled(False)
-        # self.setDirty()
+        if self.video_cap:
+            self.propagateLabelsFlag = True
+            self.propagateStartFrame = self.video_cap.get_position()
+            self.propagateLabels = self.canvas.shapes.copy()
+            self.annoStartButton.setText('Started propagate')
+            self.annoEndButton.setDisabled(False)
+            # self.setDirty()
 
     def setStopPropagateFrame(self):
         # FIXME сохранять лейблы для текущего кадра?
@@ -912,12 +917,10 @@ class MainWindow(QMainWindow, WindowMixin):
         if self._noSelectionSlot:
             self._noSelectionSlot = False
         else:
+            # FIXME when use propagation there is no selectedShape. It has to be fixed
             shape = self.canvas.selectedShape
-            if shape:
-                try:
-                    self.shapesToItems[shape].setSelected(True)
-                except KeyError as err:
-                    self.errorMessage({str(type(err)).__name__}, str(err))
+            if shape and shape in self.shapesToItems:
+                self.shapesToItems[shape].setSelected(True)
             else:
                 self.labelList.clearSelection()
         self.actions.delete.setEnabled(selected)
@@ -942,10 +945,11 @@ class MainWindow(QMainWindow, WindowMixin):
         if shape is None:
             # print('rm empty label')
             return
-        item = self.shapesToItems[shape]
-        self.labelList.takeItem(self.labelList.row(item))
-        del self.shapesToItems[shape]
-        del self.itemsToShapes[item]
+        item = self.shapesToItems.get(shape)
+        if item:
+            self.labelList.takeItem(self.labelList.row(item))
+            del self.shapesToItems[shape]
+            del self.itemsToShapes[item]
 
     def loadLabels(self, shapes):
         s = []
@@ -979,46 +983,11 @@ class MainWindow(QMainWindow, WindowMixin):
                     # add chris
                     difficult=s.difficult)
 
-    def saveLabels(self, annotationFilePath):
-        # annotationFilePath = ustr(annotationFilePath)
-        # if self.labelFile is None:
-        #     self.labelFile = LabelFile()
-        #     self.labelFile.verified = self.canvas.verified
-        #
-        # def format_shape(s):
-        #     return dict(label=s.label,
-        #                 line_color=s.line_color.getRgb(),
-        #                 fill_color=s.fill_color.getRgb(),
-        #                 points=[(p.x(), p.y()) for p in s.points],
-        #                # add chris
-        #                 difficult = s.difficult)
-        #
-        # shapes = [format_shape(shape) for shape in self.canvas.shapes]
-        # # Can add differrent annotation formats here
-        # try:
-        #     if self.usingPascalVocFormat is True:
-        #         if annotationFilePath[-4:].lower() != ".xml":
-        #             annotationFilePath += XML_EXT
-        #         self.labelFile.savePascalVocFormat(annotationFilePath, shapes, self.filePath, self.imageData,
-        #                                            self.lineColor.getRgb(), self.fillColor.getRgb())
-        #     elif self.usingYoloFormat is True:
-        #         if annotationFilePath[-4:].lower() != ".txt":
-        #             annotationFilePath += TXT_EXT
-        #         self.labelFile.saveYoloFormat(annotationFilePath, shapes, self.filePath, self.imageData, self.labelHist,
-        #                                            self.lineColor.getRgb(), self.fillColor.getRgb())
-        #     else:
-        #         self.labelFile.save(annotationFilePath, shapes, self.filePath, self.imageData,
-        #                             self.lineColor.getRgb(), self.fillColor.getRgb())
-        #     print('Image:{0} -> Annotation:{1}'.format(self.filePath, annotationFilePath))
-        #     return True
-        # except LabelFileError as e:
-        #     self.errorMessage(u'Error saving label data', u'<b>%s</b>' % e)
-        #     return False
+    def saveLabels(self):
         if self.shapes is None:
             self.shapes = YoloCacheReader(classListPath=config.PREDEF_YOLO_CLASSES)
         if self.propagateLabelsFlag:
             return True
-        annotationFilePath = ustr(annotationFilePath)
         shapes = [self.format_shape(shape) for shape in self.canvas.shapes]
         currIndex = self.video_cap.get_position()
         self.shapes[currIndex + 1] = shapes
@@ -1034,10 +1003,11 @@ class MainWindow(QMainWindow, WindowMixin):
         self.canvas.copySelectedShape()
 
     def pasteShape(self):
-        self.addLabel(self.canvas.pasteShape())
-        # fix copy and delete
-        self.shapeSelectionChanged(True)
-        self.setDirty()
+        if self.canvas.pasteShape():
+            self.addLabel(self.canvas.pasteShape())
+            # fix copy and delete
+            self.shapeSelectionChanged(True)
+            self.setDirty()
 
     def openInEditor(self):
         subprocess.Popen([config.IMAGE_EDITOR, self.filePath])
@@ -1190,10 +1160,11 @@ class MainWindow(QMainWindow, WindowMixin):
         self.elbl.setText(f"{mtime.toString()}|{self.video_cap.length(): >{8}}")
 
     def sliderPositionChanged(self):
-        self.lbl.clear()
-        mtime = QTime(0, 0, 0, 0)
-        self.time = mtime.addMSecs(self.video_cap.get_time())
-        self.lbl.setText(f"{self.time.toString()}|{self.video_cap.get_position() + 1: >{8}}")
+        if self.video_cap:
+            self.lbl.clear()
+            mtime = QTime(0, 0, 0, 0)
+            self.time = mtime.addMSecs(self.video_cap.get_time())
+            self.lbl.setText(f"{self.time.toString()}|{self.video_cap.get_position() + 1: >{8}}")
 
     def loadFrame(self, position=0):
 
@@ -1205,6 +1176,7 @@ class MainWindow(QMainWindow, WindowMixin):
         # Highlight the file item
         if self.fileListWidget.count() > 0:
 
+            # self.setListWidgetPosition(position)
             fileWidgetItem = self.fileListWidget.item(position)
             fileWidgetItem.setSelected(True)
 
@@ -1495,6 +1467,11 @@ class MainWindow(QMainWindow, WindowMixin):
                                                      QFileDialog.ShowDirsOnly | QFileDialog.DontResolveSymlinks))
         self.importDirImages(targetDirPath)
 
+    def setListWidgetPosition(self, pos):
+        item = self.fileListWidget.item(pos)
+        item.setSelected(True)
+        self.fileListWidget.scrollToItem(self.fileListWidget.item(pos), hint=QAbstractItemView.EnsureVisible)
+
     def importDirImages(self, dirpath):
         if not self.mayContinue() or not dirpath:
             return
@@ -1635,28 +1612,38 @@ class MainWindow(QMainWindow, WindowMixin):
             self.loadFile(filename)
 
     def saveFile(self, _value=False):
-        if self.defaultSaveDir is not None and len(ustr(self.defaultSaveDir)):
-            if self.filePath:
-                imgFileName = os.path.basename(self.filePath)
-                savedFileName = os.path.splitext(imgFileName)[0]
-                savedPath = os.path.join(ustr(self.defaultSaveDir), savedFileName)
-                self._saveFile(savedPath)
-        else:
-            imgFileDir = os.path.dirname(self.filePath)
-            imgFileName = os.path.basename(self.filePath)
-            savedFileName = os.path.splitext(imgFileName)[0]
-            savedPath = os.path.join(imgFileDir, savedFileName)
-            self._saveFile(savedPath if self.labelFile
-                           else self.saveFileDialog(removeExt=False))
+        self._saveAnno()
+
+        # if self.defaultSaveDir is not None and len(ustr(self.defaultSaveDir)):
+        #     if self.filePath:
+        #         imgFileName = os.path.basename(self.filePath)
+        #         savedFileName = os.path.splitext(imgFileName)[0]
+        #         savedPath = os.path.join(ustr(self.defaultSaveDir), savedFileName)
+        #         self._saveFile(savedPath)
+        # else:
+        #     imgFileDir = os.path.dirname(self.filePath)
+        #     imgFileName = os.path.basename(self.filePath)
+        #     savedFileName = os.path.splitext(imgFileName)[0]
+        #     savedPath = os.path.join(imgFileDir, savedFileName)
+        #     self._saveFile(savedPath if self.labelFile
+        #                    else self.saveFileDialog(removeExt=False))
 
     def saveAnnotation(self):
+        if self.annoFilePath and self.filePath:
+            if self.shapes:
+                self.shapes.save(filepath=self.annoFilePath)
+        elif self.filePath:
+            self.saveAnnotationAs()
+
+    def saveAnnotationAs(self):
         file = self.saveFileDialog(removeExt=False)
+        self.annoFilePath = file
         if self.shapes:
             self.shapes.save(filepath=file)
 
     def saveFileAs(self, _value=False):
         assert not self.image.isNull(), "cannot save empty image"
-        self._saveFile(self.saveFileDialog())
+        self._saveAnno(self.saveFileDialog())
 
     def saveFileDialog(self, removeExt=True):
         caption = '%s - Choose File' % __appname__
@@ -1664,7 +1651,7 @@ class MainWindow(QMainWindow, WindowMixin):
         filters = 'File (*%s, *.log)' % LabelFile.suffix
         openDialogPath = self.currentPath()
         dlg = QFileDialog(self, caption, openDialogPath, filters)
-        dlg.setDefaultSuffix(LabelFile.suffix[1:])
+        dlg.setDefaultSuffix('*.txt')
         dlg.setAcceptMode(QFileDialog.AcceptSave)
         filenameWithoutExtension = os.path.splitext(self.filePath)[0]
         dlg.selectFile(filenameWithoutExtension)
@@ -1677,10 +1664,10 @@ class MainWindow(QMainWindow, WindowMixin):
                 return fullFilePath
         return ''
 
-    def _saveFile(self, annotationFilePath):
-        if annotationFilePath and self.saveLabels(annotationFilePath):
+    def _saveAnno(self):
+        if self.saveLabels():
             self.setClean()
-            self.statusBar().showMessage('Saved to  %s' % annotationFilePath)
+            # self.statusBar().showMessage('Saved to  %s' % annotationFilePath)
             self.statusBar().show()
 
     def closeFile(self, _value=False):

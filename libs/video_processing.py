@@ -19,6 +19,9 @@ class VideoCapture:
         self.set_position(self.start_frame)
         self.cached_frame = None
 
+    def isOpened(self):
+        return True if self.video is not None else False
+
     def set_position(self, position=0):
         self.pos = position
         self.video.skip_frames(position)
@@ -39,8 +42,9 @@ class VideoCapture:
             self.cached_frame = frame
             return frame
 
-    def get_time(self):
-        pos = self.video.pos
+    def get_time(self, pos=None):
+        if pos is None:
+            pos = self.video.pos
         fps = self.video.fps
         hours = int(pos // 3600 // fps)
         minutes = int((pos - (hours * 3600 * fps)) // (60 * fps))

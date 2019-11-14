@@ -82,6 +82,7 @@ class FFMPEG_VideoReader:
         if starttime != 0 :
             offset = min(1, starttime)
             i_arg = ['-ss', "%.06f" % (starttime - offset),
+                     # '-noaccurate_seek',
                      '-i', self.filename,
                      '-ss', "%.06f" % offset]
         else:
