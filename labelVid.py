@@ -1640,6 +1640,12 @@ class MainWindow(QMainWindow, WindowMixin):
         self.annoFilePath = file
         if self.shapes:
             self.shapes.save(filepath=file)
+        else:
+            try:
+                with open(file, 'w') as inf:
+                    pass
+            except Exception as err:
+                self.errorMessage(str(type(err).__name__), str(err))
 
     def saveFileAs(self, _value=False):
         assert not self.image.isNull(), "cannot save empty image"
