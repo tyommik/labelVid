@@ -476,9 +476,13 @@ class MainWindow(QMainWindow, WindowMixin):
 
         # Add option to jump forward and backward
         self.shortcut = QShortcut(QKeySequence("Ctrl+D"), self)
-        self.shortcut.activated.connect(self.jumpForward)
+        self.shortcut.activated.connect(lambda : self.jumpForward(config.NUM_SKIP_FRAMES))
         self.shortcut = QShortcut(QKeySequence("Ctrl+A"), self)
-        self.shortcut.activated.connect(self.jumpBackward)
+        self.shortcut.activated.connect(lambda :self.jumpBackward(config.NUM_SKIP_FRAMES))
+        self.shortcut = QShortcut(QKeySequence("Shift+D"), self)
+        self.shortcut.activated.connect(lambda : self.jumpForward(5 * config.NUM_SKIP_FRAMES))
+        self.shortcut = QShortcut(QKeySequence("Shift+A"), self)
+        self.shortcut.activated.connect(lambda :self.jumpBackward(5 * config.NUM_SKIP_FRAMES))
 
         addActions(self.menus.file,
                    (openVideo, openAnnotation, saveAnno, saveAnnoAs, self.menus.recentFiles, save, close, resetAll, quit))
@@ -1550,8 +1554,7 @@ class MainWindow(QMainWindow, WindowMixin):
         if currIndex:
             self.loadFrame(currIndex)
 
-    def jumpForward(self):
-        n = config.NUM_SKIP_FRAMES
+    def jumpForward(self, n):
         if self.autoSaving.isChecked():
             if self.defaultSaveDir is not None:
                 if self.dirty is True or self.propagateLabelsFlag is True:
@@ -1576,8 +1579,7 @@ class MainWindow(QMainWindow, WindowMixin):
         if currIndex:
             self.loadFrame(currIndex)
 
-    def jumpBackward(self):
-        n = config.NUM_SKIP_FRAMES
+    def jumpBackward(self, n):
         if self.autoSaving.isChecked():
             if self.defaultSaveDir is not None:
                 if self.dirty is True or self.propagateLabelsFlag is True:
