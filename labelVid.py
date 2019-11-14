@@ -1003,7 +1003,7 @@ class MainWindow(QMainWindow, WindowMixin):
         self.canvas.copySelectedShape()
 
     def pasteShape(self):
-        if self.canvas.pasteShape():
+        if self.canvas.lastBBox:
             self.addLabel(self.canvas.pasteShape())
             # fix copy and delete
             self.shapeSelectionChanged(True)
