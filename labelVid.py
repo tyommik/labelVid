@@ -43,7 +43,7 @@ from libs.timeline import Timeline
 from libs.pascal_voc_io import PascalVocReader
 from libs.pascal_voc_io import XML_EXT
 from libs.yolo_io import YoloReader
-from libs.yolo_cache_io import YoloCacheReader
+from libs.yolo_cache_io import YoloCacheReader, CACHE_EXT
 from libs.yolo_io import TXT_EXT
 from libs.ustr import ustr
 from libs.version import __version__
@@ -1511,12 +1511,8 @@ class MainWindow(QMainWindow, WindowMixin):
     def openPrevImg(self, _value=False):
         # Proceding prev image without dialog if having any label
         if self.autoSaving.isChecked():
-            if self.defaultSaveDir is not None:
-                if self.dirty is True or self.propagateLabelsFlag is True:
-                    self.saveFile()
-            else:
-                self.changeSavedirDialog()
-                return
+            if self.dirty is True or self.propagateLabelsFlag is True:
+                self.saveFile()
 
         if not self.mayContinue():
             return
@@ -1533,12 +1529,8 @@ class MainWindow(QMainWindow, WindowMixin):
     def openNextImg(self, _value=False):
         # Proceding prev image without dialog if having any label
         if self.autoSaving.isChecked():
-            if self.defaultSaveDir is not None:
-                if self.dirty is True or self.propagateLabelsFlag is True:
-                    self.saveFile()
-            else:
-                self.changeSavedirDialog()
-                return
+            if self.dirty is True or self.propagateLabelsFlag is True:
+                self.saveFile()
 
         if not self.mayContinue():
             return
@@ -1556,12 +1548,8 @@ class MainWindow(QMainWindow, WindowMixin):
 
     def jumpForward(self, n):
         if self.autoSaving.isChecked():
-            if self.defaultSaveDir is not None:
-                if self.dirty is True or self.propagateLabelsFlag is True:
-                    self.saveFile()
-            else:
-                self.changeSavedirDialog()
-                return
+            if self.dirty is True or self.propagateLabelsFlag is True:
+                self.saveFile()
 
         if not self.mayContinue():
             return
@@ -1581,12 +1569,8 @@ class MainWindow(QMainWindow, WindowMixin):
 
     def jumpBackward(self, n):
         if self.autoSaving.isChecked():
-            if self.defaultSaveDir is not None:
-                if self.dirty is True or self.propagateLabelsFlag is True:
-                    self.saveFile()
-            else:
-                self.changeSavedirDialog()
-                return
+            if self.dirty is True or self.propagateLabelsFlag is True:
+                self.saveFile()
 
         if not self.mayContinue():
             return
@@ -1634,20 +1618,26 @@ class MainWindow(QMainWindow, WindowMixin):
         if self.annoFilePath and self.filePath:
             if self.shapes:
                 self.shapes.save(filepath=self.annoFilePath)
-        elif self.filePath:
+        else:
             self.saveAnnotationAs()
 
     def saveAnnotationAs(self):
+        if not self.filePath:
+            self.errorMessage("You have to open video file before", "")
+            self.status("Error saving annotation")
+            return False
         file = self.saveFileDialog(removeExt=False)
-        self.annoFilePath = file
-        if self.shapes:
-            self.shapes.save(filepath=file)
-        else:
-            try:
-                with open(file, 'w') as inf:
-                    pass
-            except Exception as err:
-                self.errorMessage(str(type(err).__name__), str(err))
+        if file:
+            self.annoFilePath = file
+            if self.shapes:
+                self.shapes.save(filepath=file)
+            else:
+                try:
+                    with open(file, 'w') as inf:
+                        pass
+                except Exception as err:
+                    self.errorMessage(str(type(err).__name__), str(err))
+        return True
 
     def saveFileAs(self, _value=False):
         assert not self.image.isNull(), "cannot save empty image"
@@ -1655,11 +1645,10 @@ class MainWindow(QMainWindow, WindowMixin):
 
     def saveFileDialog(self, removeExt=True):
         caption = '%s - Choose File' % __appname__
-        #FIXME расширение брать из тех, что умеет YoloCacheReader
-        filters = 'File (*%s, *.log)' % LabelFile.suffix
+        filters = 'File (*%s)' % CACHE_EXT
         openDialogPath = self.currentPath()
         dlg = QFileDialog(self, caption, openDialogPath, filters)
-        dlg.setDefaultSuffix('*.txt')
+        dlg.setDefaultSuffix('*.log')
         dlg.setAcceptMode(QFileDialog.AcceptSave)
         filenameWithoutExtension = os.path.splitext(self.filePath)[0]
         dlg.selectFile(filenameWithoutExtension)
@@ -1685,7 +1674,7 @@ class MainWindow(QMainWindow, WindowMixin):
         self.setClean()
         self.toggleActions(False)
         self.canvas.setEnabled(False)
-        self.actions.saveAs.setEnabled(False)
+        self.actions.saveAnnoAs.setEnabled(False)
 
     def resetAll(self):
         self.settings.reset()
