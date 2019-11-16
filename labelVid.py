@@ -26,7 +26,7 @@ except ImportError:
     from PyQt4.QtGui import *
     from PyQt4.QtCore import *
 
-import resources
+# import resources
 # Add internal libs
 from libs.constants import *
 from libs.lib import struct, newAction, newIcon, addActions, fmtShortcut, generateColorByText
@@ -781,7 +781,6 @@ class MainWindow(QMainWindow, WindowMixin):
         self.itemsToShapes.clear()
         self.shapesToItems.clear()
         self.labelList.clear()
-        self.filePath = None
         self.imageData = None
         self.labelFile = None
         self.canvas.resetState()
@@ -857,7 +856,8 @@ class MainWindow(QMainWindow, WindowMixin):
         currFilePath = self.filePath
 
         def exists(filename):
-            return os.path.exists(filename)
+            if filename is not None:
+                return os.path.exists(filename)
         menu = self.menus.recentFiles
         menu.clear()
         files = [f for f in self.recentFiles if f !=
@@ -1194,7 +1194,6 @@ class MainWindow(QMainWindow, WindowMixin):
             if image.isNull():
                 return False
             self.image = image
-            self.filePath = "something_here"
             self.canvas.loadPixmap(QPixmap.fromImage(image))
 
             if self.propagateLabelsFlag:
@@ -1212,7 +1211,6 @@ class MainWindow(QMainWindow, WindowMixin):
             # Label xml file and show bound box according to its filename
             # if self.usingPascalVocFormat is True:
 
-            self.setWindowTitle(__appname__ + ' ')
             self.positionSlider.setSliderPosition(position)
             self.sliderPositionChanged()
 
@@ -1228,12 +1226,11 @@ class MainWindow(QMainWindow, WindowMixin):
     def loadFile(self, filePath=None):
         """Load the specified file, or the last opened file if None."""
 
-        if self.shapes is None:
-            self.shapes = YoloCacheReader(classListPath=config.PREDEF_YOLO_CLASSES)
-        else:
+        if self.shapes is not None:
             if not self.discardChangesDialog():
                 return False
-        self.shapes = None
+
+        self.shapes = YoloCacheReader(classListPath=config.PREDEF_YOLO_CLASSES)
         self.resetState()
         self.canvas.setEnabled(False)
         if filePath is None:
@@ -1266,9 +1263,7 @@ class MainWindow(QMainWindow, WindowMixin):
             else:
                 # Load image:
                 # read data first and store for saving into label file.
-
                 self.video_cap = VideoCapture(unicodeFilePath)
-                self.imageData = self.video_cap.get_frame(pos=0)
                 self.mImgList = [i for i in range(1, self.video_cap.length() + 1)]
                 self.durationChanged(self.video_cap.duration)
                 self.positionSlider.setRange(0, self.video_cap.length() - 1)
@@ -1278,16 +1273,10 @@ class MainWindow(QMainWindow, WindowMixin):
                 self.labelFile = None
                 self.canvas.verified = False
 
-            image = QImage.fromData(self.imageData)
-            if image.isNull():
-                self.errorMessage(u'Error opening file',
-                                  u"<p>Make sure <i>%s</i> is a valid image file." % unicodeFilePath)
-                self.status("Error reading %s" % unicodeFilePath)
-                return False
             self.status("Loaded %s" % os.path.basename(unicodeFilePath))
-            self.image = image
             self.filePath = unicodeFilePath
-            self.canvas.loadPixmap(QPixmap.fromImage(image))
+            self.loadFrame(position=0)
+
             if self.labelFile:
                 self.loadLabels(self.labelFile.shapes)
             self.setClean()
@@ -1296,29 +1285,6 @@ class MainWindow(QMainWindow, WindowMixin):
             self.paintCanvas()
             self.addRecentFile(self.filePath)
             self.toggleActions(True)
-
-            # Label xml file and show bound box according to its filename
-            # if self.usingPascalVocFormat is True:
-            if self.defaultSaveDir is not None:
-                basename = os.path.basename(
-                    os.path.splitext(self.filePath)[0])
-                xmlPath = os.path.join(self.defaultSaveDir, basename + XML_EXT)
-                txtPath = os.path.join(self.defaultSaveDir, basename + TXT_EXT)
-
-                """Annotation file priority:
-                PascalXML > YOLO
-                """
-                if os.path.isfile(xmlPath):
-                    self.loadPascalXMLByFilename(xmlPath)
-                elif os.path.isfile(txtPath):
-                    self.loadYOLOTXTByFilename(txtPath)
-            else:
-                xmlPath = os.path.splitext(filePath)[0] + XML_EXT
-                txtPath = os.path.splitext(filePath)[0] + TXT_EXT
-                if os.path.isfile(xmlPath):
-                    self.loadPascalXMLByFilename(xmlPath)
-                elif os.path.isfile(txtPath):
-                    self.loadYOLOTXTByFilename(txtPath)
 
             self.setWindowTitle(__appname__ + ' ' + filePath)
 
@@ -1588,9 +1554,8 @@ class MainWindow(QMainWindow, WindowMixin):
         if not self.mayContinue():
             return None
         path = os.path.dirname(str(self.filePath)) if self.filePath else '.'
-        formats = ['*.%s' % fmt.data().decode("ascii").lower() for fmt in QImageReader.supportedImageFormats()]
-        formats.extend(['*.mp4', '*.avi', '*.mkv', '*.ts'])
-        filters = "Image & Label files (%s)" % ' '.join(formats + ['*%s' % LabelFile.suffix])
+        formats = ['*.mp4', '*.avi', '*.mkv', '*.ts', '*.mpeg', '*.mov']
+        filters = "Video files (%s)" % ' '.join(formats + ['*%s' % CACHE_EXT])
         filename = QFileDialog.getOpenFileName(self, '%s - Choose Image or Label file' % __appname__, path, filters)
         if filename:
             if isinstance(filename, (tuple, list)):
@@ -1598,7 +1563,8 @@ class MainWindow(QMainWindow, WindowMixin):
             self.loadFile(filename)
 
     def saveFile(self, _value=False):
-        self._saveAnno()
+        if self.filePath:
+            self._saveAnno()
 
         # if self.defaultSaveDir is not None and len(ustr(self.defaultSaveDir)):
         #     if self.filePath:
