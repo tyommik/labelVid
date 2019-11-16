@@ -6,81 +6,10 @@ import codecs
 from libs.constants import DEFAULT_ENCODING
 from collections import namedtuple
 
-TXT_EXT = '.txt'
+CACHE_EXT = '.log'
 ENCODE_METHOD = DEFAULT_ENCODING
 
-# FIXME Тут похоже перепутан w, h  с x2, y2
-Detection = namedtuple('Detection', 'pos, x, y, w, h, obj_class, precision')
-
-class YOLOWriter:
-
-    def __init__(self, foldername, filename, imgSize, databaseSrc='Unknown', localImgPath=None):
-        self.foldername = foldername
-        self.filename = filename
-        self.databaseSrc = databaseSrc
-        self.imgSize = imgSize
-        self.boxlist = []
-        self.localImgPath = localImgPath
-        self.verified = False
-
-    def addBndBox(self, xmin, ymin, xmax, ymax, name, difficult):
-        bndbox = {'xmin': xmin, 'ymin': ymin, 'xmax': xmax, 'ymax': ymax}
-        bndbox['name'] = name
-        bndbox['difficult'] = difficult
-        self.boxlist.append(bndbox)
-
-    def BndBox2YoloLine(self, box, classList=[]):
-        xmin = box['xmin']
-        xmax = box['xmax']
-        ymin = box['ymin']
-        ymax = box['ymax']
-
-        xcen = float((xmin + xmax)) / 2 / self.imgSize[1]
-        ycen = float((ymin + ymax)) / 2 / self.imgSize[0]
-
-        w = float((xmax - xmin)) / self.imgSize[1]
-        h = float((ymax - ymin)) / self.imgSize[0]
-
-        # PR387
-        boxName = box['name']
-        if boxName not in classList:
-            classList.append(boxName)
-
-        classIndex = classList.index(boxName)
-
-        return classIndex, xcen, ycen, w, h
-
-    def save(self, classList=[], targetFile=None):
-
-        out_file = None #Update yolo .txt
-        out_class_file = None   #Update class list .txt
-
-        if targetFile is None:
-            out_file = open(
-            self.filename + TXT_EXT, 'w', encoding=ENCODE_METHOD)
-            classesFile = os.path.join(os.path.dirname(os.path.abspath(self.filename)), "classes.txt")
-            out_class_file = open(classesFile, 'w')
-
-        else:
-            out_file = codecs.open(targetFile, 'w', encoding=ENCODE_METHOD)
-            classesFile = os.path.join(os.path.dirname(os.path.abspath(targetFile)), "classes.txt")
-            out_class_file = open(classesFile, 'w')
-
-
-        for box in self.boxlist:
-            classIndex, xcen, ycen, w, h = self.BndBox2YoloLine(box, classList)
-            # print (classIndex, xcen, ycen, w, h)
-            out_file.write("%d %.6f %.6f %.6f %.6f\n" % (classIndex, xcen, ycen, w, h))
-
-        # print (classList)
-        # print (out_class_file)
-        for c in classList:
-            out_class_file.write(c+'\n')
-
-        out_class_file.close()
-        out_file.close()
-
-
+Detection = namedtuple('Detection', 'pos, x1, y1, x2, y2, obj_class, precision')
 
 class YoloCacheReader:
 
@@ -140,8 +69,8 @@ class YoloCacheReader:
                 for line in iter(inf):
                     if not line.startswith(('#')):
                         line = line.strip()
-                        pos, x, y, w, h, obj_class, precision = line.split(' ')
-                        detection = Detection(int(float(pos)), int(x), int(y), int(w), int(h), int(obj_class),
+                        pos, x1, y1, x2, y2, obj_class, precision = line.split(' ')
+                        detection = Detection(int(float(pos)), int(x1), int(y1), int(x2), int(y2), int(obj_class),
                                               float(precision))
                         yield detection
         for detection in read_file():
@@ -157,7 +86,7 @@ class YoloCacheReader:
                     for frame in frames:
                         detections = self.detections.get(frame, [])
                         for detection in detections:
-                            out.write(f'{detection.pos} {detection.x} {detection.y} {detection.w} {detection.h} {detection.obj_class} 0\n')
+                            out.write(f'{detection.pos} {detection.x1} {detection.y1} {detection.x2} {detection.y2} {detection.obj_class} 0\n')
                     out.write("# end")
             except Exception as err:
                 print(f'{type(err).__name__, str(err)}')
@@ -170,7 +99,7 @@ class YoloCacheReader:
     def __getitem__(self, item):
         detections = self.detections.get(item)
         # FIXME фигня с координатами, перепутаны
-        shapes = [self.addShape(self.classes[int(det.obj_class)], det.x, det.y, det.w, det.h, 0.5) for det in detections] if detections else []
+        shapes = [self.addShape(self.classes[int(det.obj_class)], det.x1, det.y1, det.x2, det.y2, 0.5) for det in detections] if detections else []
         return shapes
 
     def __setitem__(self, pos, value):
