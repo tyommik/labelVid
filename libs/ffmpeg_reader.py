@@ -264,7 +264,10 @@ def ffmpeg_parse_infos(filename, print_infos=False, check_duration=True,
 
     proc = sp.Popen(cmd, **popen_params)
     (output, error) = proc.communicate()
-    infos = error.decode('utf8')
+    try:
+        infos = error.decode('utf8')
+    except UnicodeDecodeError as err:
+        infos = error.decode('cp437')
 
     del proc
 
