@@ -8,7 +8,7 @@ lxml==4.2.4
 moviepy==1.0.1
 numpy==1.17.3
 opencv-python==4.1.1.26
-Pillow==7.1.2
+Pillow==8.1.1
 proglog==0.1.9
 PyQt5==5.13.1
 PyQt5-sip==12.7.0
