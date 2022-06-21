@@ -6,7 +6,7 @@ imageio==2.6.1
 imageio-ffmpeg==0.3.0
 lxml==4.2.4
 moviepy==1.0.1
-numpy==1.17.3
+numpy==1.22.0
 opencv-python==4.1.1.26
 Pillow==7.1.2
 proglog==0.1.9
